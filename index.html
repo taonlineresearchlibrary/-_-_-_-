@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로켓 모터 연소실 압력 시뮬레이터</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #1e1e1e;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background-color: #2d2d2d;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        h1 {
+            text-align: center;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+        .control-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+            background-color: #3d3d3d;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            color: #b0b0b0;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin-top: 5px;
+        }
+        .value-display {
+            font-weight: bold;
+            color: #4da6ff;
+        }
+        .status-board {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #1a1a1a;
+            border-radius: 5px;
+            border: 1px solid #444;
+        }
+        #warning {
+            color: #ff4d4d;
+            font-weight: bold;
+            font-size: 1.2rem;
+            display: none;
+            margin-top: 10px;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        canvas {
+            background-color: #222;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🚀 고체 로켓 연소실 평형 압력 시뮬레이션</h1>
+    
+    <div class="control-panel">
+        <div class="control-group">
+            <label>연소 표면적 (A_b): <span id="val_Ab" class="value-display">500</span></label>
+            <input type="range" id="slider_Ab" min="100" max="1000" step="10" value="500">
+        </div>
+        <div class="control-group">
+            <label>노즐 목 단면적 (A_t): <span id="val_At" class="value-display">5</span></label>
+            <input type="range" id="slider_At" min="1" max="10" step="0.5" value="5">
+        </div>
+        <div class="control-group">
+            <label>압력 지수 (n): <span id="val_n" class="value-display">0.4</span></label>
+            <input type="range" id="slider_n" min="0.1" max="1.2" step="0.05" value="0.4">
+        </div>
+    </div>
+
+    <div class="status-board">
+        <div>현재 <strong>Kn 비 (A_b / A_t)</strong>: <span id="val_Kn" style="color: #00e676; font-size: 1.2rem;">100.0</span></div>
+        <div id="warning">⚠️ 폭발 위험: 압력 폭주 현상 발생! (n 지수 1.0 이상)</div>
+    </div>
+
+    <canvas id="pressureChart" width="800" height="400"></canvas>
+</div>
+
+<script>
+    // 캔버스 및 차트 초기화
+    const ctx = document.getElementById('pressureChart').getContext('2d');
+    let pressureChart;
+
+    // UI 요소
+    const slider_Ab = document.getElementById('slider_Ab');
+    const slider_At = document.getElementById('slider_At');
+    const slider_n = document.getElementById('slider_n');
+    const val_Ab = document.getElementById('val_Ab');
+    const val_At = document.getElementById('val_At');
+    const val_n = document.getElementById('val_n');
+    const val_Kn = document.getElementById('val_Kn');
+    const warning = document.getElementById('warning');
+
+    // 시뮬레이션 및 차트 업데이트 함수
+    function updateSimulation() {
+        const Ab = parseFloat(slider_Ab.value);
+        const At = parseFloat(slider_At.value);
+        const n = parseFloat(slider_n.value);
+
+        // UI 텍스트 업데이트
+        val_Ab.textContent = Ab;
+        val_At.textContent = At;
+        val_n.textContent = n.toFixed(2);
+        val_Kn.textContent = (Ab / At).toFixed(1);
+
+        // 시뮬레이션 상수 (교육용 가상의 수치)
+        const a_coeff = 0.05; // 연소율 계수 묶음
+        const c_star_inv = 0.01; // 특성 배기 속도 역수 묶음
+        const time_steps = 100;
+        const dt = 0.05;
+        
+        let timeData = [];
+        let pressureData = [];
+        let Pc = 1.0; // 초기 압력 (대기압)
+        let exploded = false;
+
+        // 물리 연산 루프 (오일러 적분)
+        for (let i = 0; i <= time_steps; i++) {
+            timeData.push((i * dt).toFixed(2));
+            pressureData.push(Pc);
+
+            // 들어오는 질량 (가스 생성)과 나가는 질량 (가스 배출)
+            let m_in = a_coeff * Ab * Math.pow(Pc, n);
+            let m_out = c_star_inv * At * Pc;
+            
+            // 압력 변화율
+            let dP = (m_in - m_out) * 5; 
+            Pc += dP * dt;
+
+            // n이 1 이상이거나 압력이 비정상적으로 치솟으면 폭발 처리
+            if (Pc > 2000 || isNaN(Pc)) {
+                exploded = true;
+                break;
+            }
+        }
+
+        // 폭발 경고 UI 표시
+        if (exploded || n >= 1.0) {
+            warning.style.display = 'block';
+        } else {
+            warning.style.display = 'none';
+        }
+
+        // 차트 데이터 갱신
+        if (pressureChart) {
+            pressureChart.destroy();
+        }
+
+        pressureChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: timeData,
+                datasets: [{
+                    label: '연소실 평형 압력 (Pc)',
+                    data: pressureData,
+                    borderColor: exploded ? '#ff4d4d' : '#4da6ff',
+                    backgroundColor: exploded ? 'rgba(255, 77, 77, 0.2)' : 'rgba(77, 166, 255, 0.2)',
+                    borderWidth: 2,
+                    fill: true,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                animation: { duration: 0 },
+                scales: {
+                    x: {
+                        title: { display: true, text: '시간 (Time)', color: '#b0b0b0' },
+                        ticks: { color: '#b0b0b0' }
+                    },
+                    y: {
+                        title: { display: true, text: '압력 (Pressure)', color: '#b0b0b0' },
+                        ticks: { color: '#b0b0b0' },
+                        suggestedMin: 0,
+                        suggestedMax: 200
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: '#ffffff' } }
+                }
+            }
+        });
+    }
+
+    // 슬라이더 이벤트 리스너 등록
+    slider_Ab.addEventListener('input', updateSimulation);
+    slider_At.addEventListener('input', updateSimulation);
+    slider_n.addEventListener('input', updateSimulation);
+
+    // 초기 실행
+    updateSimulation();
+</script>
+</body>
+</html>
