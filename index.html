@@ -3,223 +3,226 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>로켓 모터 연소실 압력 시뮬레이터</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>로켓 엔진 종합 설계 대시보드</title>
     <style>
-        body {
-            font-family: 'Malgun Gothic', sans-serif;
-            background-color: #1e1e1e;
-            color: #ffffff;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .container {
-            width: 100%;
-            max-width: 800px;
-            background-color: #2d2d2d;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        }
-        h1 {
-            text-align: center;
-            font-size: 1.5rem;
-            margin-bottom: 20px;
-        }
-        .control-panel {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-            background-color: #3d3d3d;
-            padding: 15px;
-            border-radius: 8px;
-        }
-        .control-group {
-            display: flex;
-            flex-direction: column;
-        }
-        label {
-            margin-bottom: 5px;
-            font-size: 0.9rem;
-            color: #b0b0b0;
-        }
-        input[type="range"] {
-            width: 100%;
-            margin-top: 5px;
-        }
-        .value-display {
-            font-weight: bold;
-            color: #4da6ff;
-        }
-        .status-board {
-            text-align: center;
-            margin-bottom: 20px;
-            padding: 10px;
-            background-color: #1a1a1a;
-            border-radius: 5px;
-            border: 1px solid #444;
-        }
-        #warning {
-            color: #ff4d4d;
-            font-weight: bold;
-            font-size: 1.2rem;
-            display: none;
-            margin-top: 10px;
-            animation: blink 1s infinite;
-        }
-        @keyframes blink {
-            0% { opacity: 1; }
-            50% { opacity: 0; }
-            100% { opacity: 1; }
-        }
-        canvas {
-            background-color: #222;
-            border-radius: 5px;
-        }
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .dashboard { width: 100%; max-width: 900px; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.8); }
+        h1 { text-align: center; color: #fff; margin-bottom: 5px; }
+        p.subtitle { text-align: center; color: #888; margin-top: 0; margin-bottom: 30px; }
+        
+        .layout { display: flex; gap: 20px; flex-wrap: wrap; }
+        .controls { flex: 1; min-width: 300px; background: #2a2a2a; padding: 20px; border-radius: 8px; }
+        .outputs { flex: 1; min-width: 300px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        
+        .control-group { margin-bottom: 15px; }
+        label { display: flex; justify-content: space-between; font-size: 0.9rem; color: #bbb; margin-bottom: 5px; }
+        .val-hl { color: #4da6ff; font-weight: bold; }
+        input[type="range"] { width: 100%; accent-color: #4da6ff; }
+        
+        .card { background: #333; padding: 15px; border-radius: 8px; text-align: center; border-left: 4px solid #4da6ff; }
+        .card h3 { margin: 0 0 10px 0; font-size: 0.9rem; color: #aaa; }
+        .card .value { font-size: 1.5rem; font-weight: bold; color: #fff; }
+        .card .unit { font-size: 0.8rem; color: #888; }
+        
+        #warning { grid-column: span 2; background: rgba(255, 77, 77, 0.2); color: #ff4d4d; padding: 10px; border-radius: 5px; text-align: center; font-weight: bold; display: none; border: 1px solid #ff4d4d; }
+        
+        canvas { width: 100%; height: 200px; background: #000; border-radius: 8px; margin-top: 20px; border: 1px solid #444; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>🚀 고체 로켓 연소실 평형 압력 시뮬레이션</h1>
-    
-    <div class="control-panel">
-        <div class="control-group">
-            <label>연소 표면적 (A_b): <span id="val_Ab" class="value-display">500</span></label>
-            <input type="range" id="slider_Ab" min="100" max="1000" step="10" value="500">
+<div class="dashboard">
+    <h1>🚀 엔진 종합 설계 대시보드</h1>
+    <p class="subtitle">연소실 평형부터 노즐 팽창, 추력 계산까지</p>
+
+    <div class="layout">
+        <div class="controls">
+            <h3 style="margin-top:0; color:#fff; border-bottom:1px solid #555; padding-bottom:10px;">엔진 파라미터 입력</h3>
+            
+            <div class="control-group">
+                <label>연소 표면적 (Ab) <span id="valAb" class="val-hl">1000 cm²</span></label>
+                <input type="range" id="inAb" min="100" max="3000" step="50" value="1000">
+            </div>
+            <div class="control-group">
+                <label>노즐 목 단면적 (At) <span id="valAt" class="val-hl">10 cm²</span></label>
+                <input type="range" id="inAt" min="2" max="30" step="1" value="10">
+            </div>
+            <div class="control-group">
+                <label>노즐 출구 단면적 (Ae) <span id="valAe" class="val-hl">50 cm²</span></label>
+                <input type="range" id="inAe" min="10" max="200" step="5" value="50">
+            </div>
+            <div class="control-group">
+                <label>대기압 (고도) <span id="valPa" class="val-hl">1.0 atm (해수면)</span></label>
+                <input type="range" id="inPa" min="0" max="1" step="0.05" value="1.0">
+            </div>
         </div>
-        <div class="control-group">
-            <label>노즐 목 단면적 (A_t): <span id="val_At" class="value-display">5</span></label>
-            <input type="range" id="slider_At" min="1" max="10" step="0.5" value="5">
-        </div>
-        <div class="control-group">
-            <label>압력 지수 (n): <span id="val_n" class="value-display">0.4</span></label>
-            <input type="range" id="slider_n" min="0.1" max="1.2" step="0.05" value="0.4">
+
+        <div class="outputs">
+            <div id="warning">⚠️ 폭발 위험: 압력 한계(150 atm) 초과!</div>
+            
+            <div class="card">
+                <h3>연소실 압력 (Pc)</h3>
+                <div class="value" id="outPc">0</div><div class="unit">atm</div>
+            </div>
+            <div class="card">
+                <h3>총 추력 (Thrust)</h3>
+                <div class="value" id="outThrust" style="color: #00e676;">0</div><div class="unit">kgf (킬로그램힘)</div>
+            </div>
+            <div class="card">
+                <h3>팽창비 (Ae / At)</h3>
+                <div class="value" id="outEps">0</div><div class="unit">Ratio</div>
+            </div>
+            <div class="card">
+                <h3>비추력 (Isp : 연비)</h3>
+                <div class="value" id="outIsp">0</div><div class="unit">초 (sec)</div>
+            </div>
+            <div class="card">
+                <h3>출구 압력 (Pe)</h3>
+                <div class="value" id="outPe">0</div><div class="unit">atm</div>
+            </div>
+            <div class="card" id="expansionCard">
+                <h3>팽창 상태</h3>
+                <div class="value" id="outStatus" style="font-size: 1.1rem;">-</div><div class="unit">대기압과의 관계</div>
+            </div>
         </div>
     </div>
 
-    <div class="status-board">
-        <div>현재 <strong>Kn 비 (A_b / A_t)</strong>: <span id="val_Kn" style="color: #00e676; font-size: 1.2rem;">100.0</span></div>
-        <div id="warning">⚠️ 폭발 위험: 압력 폭주 현상 발생! (n 지수 1.0 이상)</div>
-    </div>
-
-    <canvas id="pressureChart" width="800" height="400"></canvas>
+    <h3 style="color:#fff; margin-top:20px; margin-bottom:5px;">노즐 형상 단면도 (실시간)</h3>
+    <canvas id="nozzleCanvas" width="800" height="200"></canvas>
 </div>
 
 <script>
-    // 캔버스 및 차트 초기화
-    const ctx = document.getElementById('pressureChart').getContext('2d');
-    let pressureChart;
-
+    // 상수 및 환경 설정 (가상의 고체 추진제 기준)
+    const GAMMA = 1.2;          // 비열비
+    const R_GAS = 287;          // 기체 상수 (J/kg.K)
+    const TC = 3200;            // 연소실 온도 (K)
+    const N_EXP = 0.35;         // 압력 지수
+    
     // UI 요소
-    const slider_Ab = document.getElementById('slider_Ab');
-    const slider_At = document.getElementById('slider_At');
-    const slider_n = document.getElementById('slider_n');
-    const val_Ab = document.getElementById('val_Ab');
-    const val_At = document.getElementById('val_At');
-    const val_n = document.getElementById('val_n');
-    const val_Kn = document.getElementById('val_Kn');
+    const inAb = document.getElementById('inAb');
+    const inAt = document.getElementById('inAt');
+    const inAe = document.getElementById('inAe');
+    const inPa = document.getElementById('inPa');
     const warning = document.getElementById('warning');
+    const canvas = document.getElementById('nozzleCanvas');
+    const ctx = canvas.getContext('2d');
 
-    // 시뮬레이션 및 차트 업데이트 함수
     function updateSimulation() {
-        const Ab = parseFloat(slider_Ab.value);
-        const At = parseFloat(slider_At.value);
-        const n = parseFloat(slider_n.value);
+        // 1. 입력값 가져오기
+        let Ab = parseFloat(inAb.value);
+        let At = parseFloat(inAt.value);
+        let Ae = Math.max(At * 1.1, parseFloat(inAe.value)); // 출구는 목보다 무조건 커야 함
+        inAe.value = Ae; // UI 보정
+        let Pa_atm = parseFloat(inPa.value);
+        let Pa_pa = Pa_atm * 101325; // atm을 Pascal로 변환
 
         // UI 텍스트 업데이트
-        val_Ab.textContent = Ab;
-        val_At.textContent = At;
-        val_n.textContent = n.toFixed(2);
-        val_Kn.textContent = (Ab / At).toFixed(1);
+        document.getElementById('valAb').innerText = Ab + " cm²";
+        document.getElementById('valAt').innerText = At + " cm²";
+        document.getElementById('valAe').innerText = Ae + " cm²";
+        document.getElementById('valPa').innerText = Pa_atm === 0 ? "0.0 atm (우주 진공)" : Pa_atm.toFixed(2) + " atm";
 
-        // 시뮬레이션 상수 (교육용 가상의 수치)
-        const a_coeff = 0.05; // 연소율 계수 묶음
-        const c_star_inv = 0.01; // 특성 배기 속도 역수 묶음
-        const time_steps = 100;
-        const dt = 0.05;
+        // 2. 물리량 계산 (단순화된 근사 모델 적용)
+        let Kn = Ab / At;
+        // 연소실 압력 계산 (경험적 스케일링 적용)
+        let Pc_atm = Math.pow(Kn / 20, 1 / (1 - N_EXP)); 
+        let Pc_pa = Pc_atm * 101325;
+
+        // 경고 처리
+        if(Pc_atm > 150) { warning.style.display = 'block'; } 
+        else { warning.style.display = 'none'; }
+
+        // C* (특성 배기 속도) 및 질량 유량
+        let c_star = Math.sqrt(GAMMA * R_GAS * TC) / (GAMMA * Math.pow(2/(GAMMA+1), (GAMMA+1)/(2*(GAMMA-1))));
+        let m_dot = (Pc_pa * (At / 10000)) / c_star; // kg/s
+
+        // 팽창비 및 마하수 계산 (근사식)
+        let eps = Ae / At;
+        let Me = 1.0 + 1.2 * Math.sqrt(eps - 1); 
+
+        // 출구 압력 및 속도
+        let term = 1 + ((GAMMA - 1) / 2) * Math.pow(Me, 2);
+        let Pe_pa = Pc_pa / Math.pow(term, GAMMA / (GAMMA - 1));
+        let Pe_atm = Pe_pa / 101325;
+        let Te = TC / term;
+        let Ve = Me * Math.sqrt(GAMMA * R_GAS * Te);
+
+        // 추력 (운동량 추력 + 압력 추력)
+        let Thrust_N = m_dot * Ve + (Pe_pa - Pa_pa) * (Ae / 10000);
+        let Thrust_kgf = Thrust_N / 9.81; // 뉴턴을 kgf로 변환
+
+        // 비추력 (Isp)
+        let Isp = Thrust_N / (m_dot * 9.81);
+
+        // 3. 결과 출력
+        document.getElementById('outPc').innerText = Pc_atm.toFixed(1);
+        document.getElementById('outThrust').innerText = Math.max(0, Math.round(Thrust_kgf)).toLocaleString();
+        document.getElementById('outEps').innerText = eps.toFixed(1);
+        document.getElementById('outIsp').innerText = isNaN(Isp) || Isp < 0 ? 0 : Math.round(Isp);
+        document.getElementById('outPe').innerText = Pe_atm.toFixed(2);
+
+        // 팽창 상태 판별
+        let statusText = "";
+        let statusColor = "#fff";
+        if (Pa_atm === 0) { statusText = "진공 팽창 (최고 효율)"; statusColor = "#b388ff"; }
+        else if (Pe_atm > Pa_atm * 1.1) { statusText = "과소 팽창 (Underexpanded)"; statusColor = "#ffb74d"; }
+        else if (Pe_atm < Pa_atm * 0.9) { statusText = "과대 팽창 (Overexpanded)"; statusColor = "#ff5252"; }
+        else { statusText = "최적 팽창 (Optimum)"; statusColor = "#00e676"; }
         
-        let timeData = [];
-        let pressureData = [];
-        let Pc = 1.0; // 초기 압력 (대기압)
-        let exploded = false;
+        document.getElementById('outStatus').innerText = statusText;
+        document.getElementById('outStatus').style.color = statusColor;
 
-        // 물리 연산 루프 (오일러 적분)
-        for (let i = 0; i <= time_steps; i++) {
-            timeData.push((i * dt).toFixed(2));
-            pressureData.push(Pc);
-
-            // 들어오는 질량 (가스 생성)과 나가는 질량 (가스 배출)
-            let m_in = a_coeff * Ab * Math.pow(Pc, n);
-            let m_out = c_star_inv * At * Pc;
-            
-            // 압력 변화율
-            let dP = (m_in - m_out) * 5; 
-            Pc += dP * dt;
-
-            // n이 1 이상이거나 압력이 비정상적으로 치솟으면 폭발 처리
-            if (Pc > 2000 || isNaN(Pc)) {
-                exploded = true;
-                break;
-            }
-        }
-
-        // 폭발 경고 UI 표시
-        if (exploded || n >= 1.0) {
-            warning.style.display = 'block';
-        } else {
-            warning.style.display = 'none';
-        }
-
-        // 차트 데이터 갱신
-        if (pressureChart) {
-            pressureChart.destroy();
-        }
-
-        pressureChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: timeData,
-                datasets: [{
-                    label: '연소실 평형 압력 (Pc)',
-                    data: pressureData,
-                    borderColor: exploded ? '#ff4d4d' : '#4da6ff',
-                    backgroundColor: exploded ? 'rgba(255, 77, 77, 0.2)' : 'rgba(77, 166, 255, 0.2)',
-                    borderWidth: 2,
-                    fill: true,
-                    pointRadius: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                animation: { duration: 0 },
-                scales: {
-                    x: {
-                        title: { display: true, text: '시간 (Time)', color: '#b0b0b0' },
-                        ticks: { color: '#b0b0b0' }
-                    },
-                    y: {
-                        title: { display: true, text: '압력 (Pressure)', color: '#b0b0b0' },
-                        ticks: { color: '#b0b0b0' },
-                        suggestedMin: 0,
-                        suggestedMax: 200
-                    }
-                },
-                plugins: {
-                    legend: { labels: { color: '#ffffff' } }
-                }
-            }
-        });
+        drawNozzle(At, Ae);
     }
 
-    // 슬라이더 이벤트 리스너 등록
-    slider_Ab.addEventListener('input', updateSimulation);
-    slider_At.addEventListener('input', updateSimulation);
-    slider_n.addEventListener('input', updateSimulation);
+    // 4. 노즐 캔버스 그리기 함수
+    function drawNozzle(At, Ae) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        const cy = canvas.height / 2; // 중심축 Y
+        const chamberR = 60; // 연소실 임의 반경
+        const throatR = Math.sqrt(At) * 3 + 5; // 시각적 스케일링
+        const exitR = Math.sqrt(Ae) * 3 + 5;
+        
+        const startX = 50, throatX = 350, exitX = 750;
+
+        // 가스 흐름 효과 (배경)
+        let gradient = ctx.createLinearGradient(startX, 0, exitX, 0);
+        gradient.addColorStop(0, "rgba(255, 100, 0, 0.8)"); // 연소실 (뜨거움)
+        gradient.addColorStop(0.5, "rgba(255, 200, 0, 0.6)"); // 목
+        gradient.addColorStop(1, "rgba(100, 200, 255, 0.3)"); // 출구 (식음)
+        
+        ctx.beginPath();
+        ctx.moveTo(startX, cy - chamberR);
+        ctx.bezierCurveTo(throatX - 100, cy - chamberR, throatX - 50, cy - throatR, throatX, cy - throatR); // 수축부
+        ctx.bezierCurveTo(throatX + 150, cy - throatR, exitX - 100, cy - exitR, exitX, cy - exitR); // 팽창부
+        ctx.lineTo(exitX, cy + exitR);
+        ctx.bezierCurveTo(exitX - 100, cy + exitR, throatX + 150, cy + throatR, throatX, cy + throatR);
+        ctx.bezierCurveTo(throatX - 50, cy + throatR, throatX - 100, cy + chamberR, startX, cy + chamberR);
+        ctx.closePath();
+        
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // 중심선 그리기
+        ctx.beginPath();
+        ctx.setLineDash([10, 10]);
+        ctx.moveTo(0, cy);
+        ctx.lineTo(canvas.width, cy);
+        ctx.strokeStyle = "rgba(255,255,255,0.3)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // 이벤트 리스너
+    inAb.addEventListener('input', updateSimulation);
+    inAt.addEventListener('input', updateSimulation);
+    inAe.addEventListener('input', updateSimulation);
+    inPa.addEventListener('input', updateSimulation);
 
     // 초기 실행
     updateSimulation();
